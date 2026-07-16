@@ -52,9 +52,15 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("MongoDB connected");
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    if (process.env.VERCEL) {
+      console.log("Running on Vercel");
+    } else {
+      app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    }
   })
   .catch((err) => {
     console.error("MongoDB connection error:", err.message);
-    process.exit(1);
+    if (!process.env.VERCEL) process.exit(1);
   });
+
+export default app;
