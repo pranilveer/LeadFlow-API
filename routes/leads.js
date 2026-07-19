@@ -36,6 +36,7 @@ router.get("/stats", async (req, res) => {
 
     res.json({ total, today: todayCount, categories, myLeads: myCount });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -47,6 +48,7 @@ router.get("/", async (req, res) => {
     const leads = await Lead.find(query).sort({ createdAt: -1 });
     res.json(leads);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -65,6 +67,7 @@ router.post("/", async (req, res) => {
     await Activity.create({ type: "lead", message: `Lead "${lead.leadName}" created (${lead.id}).`, user: req.user.username });
     res.status(201).json(lead);
   } catch (err) {
+    console.error(err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -81,6 +84,7 @@ router.put("/:id", async (req, res) => {
     await Activity.create({ type: "lead", message: `Lead "${lead.leadName}" updated.`, user: req.user.username });
     res.json(lead);
   } catch (err) {
+    console.error(err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -96,6 +100,7 @@ router.delete("/:id", async (req, res) => {
     await Activity.create({ type: "lead", message: `Lead "${lead.leadName}" deleted.`, user: req.user.username });
     res.json({ success: true });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -123,6 +128,7 @@ router.post("/import", async (req, res) => {
     }
     res.status(201).json({ imported: results.length });
   } catch (err) {
+    console.error(err);
     res.status(400).json({ error: err.message });
   }
 });

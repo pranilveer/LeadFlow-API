@@ -46,6 +46,7 @@ router.post("/register", async (req, res) => {
       user: { userId: user._id, username: user.username, role: user.role, name: user.name, email: user.email, avatarColor: user.avatarColor, loggedInAt: new Date().toISOString() },
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -62,8 +63,7 @@ router.post("/login", async (req, res) => {
     const user = await User.findOne(query).select("+password");
     if (!user) return res.status(401).json({ error: "Invalid username or password" });
 
-    const bcrypt = await import("bcryptjs");
-    const match = await bcrypt.default.compare(password, user.password);
+    const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ error: "Invalid username or password" });
 
     user.lastLogin = new Date();
@@ -78,6 +78,7 @@ router.post("/login", async (req, res) => {
       user: { userId: user._id, username: user.username, role: user.role, name: user.name, email: user.email, avatarColor: user.avatarColor, loggedInAt: new Date().toISOString() },
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -92,6 +93,7 @@ router.get("/me", requireAuth, async (req, res) => {
       bio: user.bio, avatarColor: user.avatarColor, createdAt: user.createdAt, lastLogin: user.lastLogin,
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });

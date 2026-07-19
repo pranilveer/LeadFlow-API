@@ -21,6 +21,7 @@ router.get("/", async (_req, res) => {
     const categories = await Category.find().sort({ createdAt: 1 });
     res.json(await withLeadCount(categories));
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -35,6 +36,7 @@ router.post("/", async (req, res) => {
     await Activity.create({ type: "category", message: `Category "${cat.name}" created.`, user: req.user.username });
     res.status(201).json({ ...cat.toJSON(), leadCount: 0 });
   } catch (err) {
+    console.error(err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -57,6 +59,7 @@ router.put("/:id", async (req, res) => {
     const categories = await Category.find().sort({ createdAt: 1 });
     res.json((await withLeadCount(categories)).find(c => c._id.toString() === cat._id.toString()));
   } catch (err) {
+    console.error(err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -72,6 +75,7 @@ router.delete("/:id", async (req, res) => {
     await Activity.create({ type: "category", message: `Category "${cat.name}" deleted.`, user: req.user.username });
     res.json({ success: true });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });

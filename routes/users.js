@@ -20,6 +20,7 @@ router.get("/", async (_req, res) => {
     });
     res.json(result);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -44,6 +45,7 @@ router.post("/", async (req, res) => {
     await Activity.create({ type: "user", message: `User "${user.name}" created.`, user: req.user.username });
     res.status(201).json(user);
   } catch (err) {
+    console.error(err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -66,6 +68,7 @@ router.put("/:id", async (req, res) => {
     await Activity.create({ type: "user", message: `User "${user.name}" updated.`, user: req.user.username });
     res.json(user);
   } catch (err) {
+    console.error(err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -85,6 +88,7 @@ router.delete("/:id", async (req, res) => {
     await Activity.create({ type: "user", message: `User "${user.name}" deleted.`, user: req.user.username });
     res.json({ success: true });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });

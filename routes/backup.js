@@ -45,6 +45,7 @@ router.get("/export", requireAdmin, async (_req, res) => {
       leadSeq: counter ? counter.seq : 1,
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -102,6 +103,7 @@ router.post("/import", requireAdmin, async (req, res) => {
     await Activity.create({ type: "system", message: "Data restored from backup.", user: req.user.username });
     res.json({ success: true });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -126,6 +128,7 @@ router.post("/reset", requireAdmin, async (req, res) => {
     await Activity.create({ type: "system", message: "All CRM data reset to defaults.", user: req.user.username });
     res.json({ success: true });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });

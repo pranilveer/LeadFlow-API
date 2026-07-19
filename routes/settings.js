@@ -18,6 +18,7 @@ router.get("/", async (_req, res) => {
     if (!settings) settings = await Settings.create(DEFAULTS);
     res.json(settings);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -31,6 +32,7 @@ router.put("/", async (req, res) => {
     await Activity.create({ type: "system", message: "Settings updated.", user: req.user.username });
     res.json(settings);
   } catch (err) {
+    console.error(err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -53,6 +55,7 @@ router.put("/profile", async (req, res) => {
     await Activity.create({ type: "user", message: "Profile updated.", user: req.user.username });
     res.json(user);
   } catch (err) {
+    console.error(err);
     res.status(400).json({ error: err.message });
   }
 });

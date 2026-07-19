@@ -13,6 +13,7 @@ router.get("/", async (req, res) => {
     const activities = await Activity.find(query).sort({ timestamp: -1 }).limit(500);
     res.json(activities);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
