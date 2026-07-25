@@ -2,10 +2,10 @@ import mongoose from "mongoose";
 
 const leadSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
-  leadName: { type: String, required: true, trim: true },
+  leadName: { type: String, trim: true },
   businessName: { type: String, required: true, trim: true },
-  email: { type: String, required: true, trim: true },
-  phone: { type: String, default: "" },
+  email: { type: String, trim: true },
+  phone: { type: String, required: true, default: "" },
   website: { type: String, default: "" },
   category: { type: String, required: true },
   customCategory: { type: String, default: "" },
