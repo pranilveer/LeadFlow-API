@@ -55,11 +55,22 @@ router.put("/:id", async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ error: "User not found" });
     const { username, name, email, phone, role, title, department, bio, password } = req.body;
+
+    if (role && role !== user.role) {
+      if (user._id.toString() === req.user.userId && role !== "admin") {
+        return res.status(400).json({ error: "Cannot revoke your own administrator privileges." });
+      }
+      if (user.role === "admin" && role !== "admin") {
+        const adminCount = await User.countDocuments({ role: "admin" });
+        if (adminCount <= 1) return res.status(400).json({ error: "Cannot remove the only administrator role." });
+      }
+      user.role = role;
+    }
+
     if (username) user.username = username.trim();
     if (name) user.name = name.trim();
     if (email !== undefined) user.email = email;
     if (phone !== undefined) user.phone = phone;
-    if (role) user.role = role;
     if (title !== undefined) user.title = title;
     if (department !== undefined) user.department = department;
     if (bio !== undefined) user.bio = bio;

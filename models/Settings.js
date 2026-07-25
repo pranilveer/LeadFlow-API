@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const settingsSchema = new mongoose.Schema({
   companyName: { type: String, default: "LeadFlow CRM" },
-  timezone: { type: String, default: "America/New_York" },
+  timezone: { type: String, default: "Asia/Kolkata" },
   dateFormat: { type: String, default: "MMM D, YYYY" },
   leadsPerPage: { type: Number, default: 10 },
   defaultLeadStatus: { type: String, default: "New" },

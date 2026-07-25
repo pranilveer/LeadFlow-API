@@ -1,13 +1,13 @@
 import { Router } from "express";
 import Settings from "../models/Settings.js";
 import Activity from "../models/Activity.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
 router.use(requireAuth);
 
 const DEFAULTS = {
-  companyName: "LeadFlow CRM", timezone: "America/New_York", dateFormat: "MMM D, YYYY",
+  companyName: "LeadFlow CRM", timezone: "Asia/Kolkata", dateFormat: "MMM D, YYYY",
   leadsPerPage: 10, defaultLeadStatus: "New", defaultLeadSource: "Website",
   emailNotifications: true, desktopNotifications: false, autoBackup: false,
 };
@@ -23,7 +23,7 @@ router.get("/", async (_req, res) => {
   }
 });
 
-router.put("/", async (req, res) => {
+router.put("/", requireAdmin, async (req, res) => {
   try {
     let settings = await Settings.findOne();
     if (!settings) settings = new Settings(DEFAULTS);
