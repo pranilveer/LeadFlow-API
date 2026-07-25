@@ -34,7 +34,7 @@ const LEADS = [
 ];
 
 const SETTINGS = {
-  companyName: "LeadFlow CRM", timezone: "America/New_York", dateFormat: "MMM D, YYYY",
+  companyName: "LeadFlow CRM", timezone: "Asia/Kolkata", dateFormat: "MMM D, YYYY",
   leadsPerPage: 10, defaultLeadStatus: "New", defaultLeadSource: "Website",
   emailNotifications: true, desktopNotifications: false, autoBackup: false,
 };
