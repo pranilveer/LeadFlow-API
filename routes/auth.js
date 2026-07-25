@@ -27,6 +27,11 @@ router.post("/register", async (req, res) => {
     const exists = await User.findOne({ username: { $regex: new RegExp(`^${username.trim()}$`, "i") } });
     if (exists) return res.status(400).json({ error: "Username already exists." });
 
+    if (email) {
+      const emailTaken = await User.findOne({ email: { $regex: new RegExp(`^${email.trim()}$`, "i") } });
+      if (emailTaken) return res.status(400).json({ error: "Email already exists." });
+    }
+
     const count = await User.countDocuments();
     const hashed = await bcrypt.hash(password, 10);
     const user = await User.create({

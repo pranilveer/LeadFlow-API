@@ -34,6 +34,10 @@ router.post("/", async (req, res) => {
     if (!password || password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters." });
     const exists = await User.findOne({ username: { $regex: new RegExp(`^${username.trim()}$`, "i") } });
     if (exists) return res.status(400).json({ error: "Username already exists." });
+    if (email) {
+      const emailTaken = await User.findOne({ email: { $regex: new RegExp(`^${email.trim()}$`, "i") } });
+      if (emailTaken) return res.status(400).json({ error: "Email already exists." });
+    }
     const count = await User.countDocuments();
     const hashed = await bcrypt.hash(password, 10);
     const user = await User.create({
@@ -69,7 +73,11 @@ router.put("/:id", async (req, res) => {
 
     if (username) user.username = username.trim();
     if (name) user.name = name.trim();
-    if (email !== undefined) user.email = email;
+    if (email !== undefined && email !== user.email) {
+      const emailTaken = await User.findOne({ _id: { $ne: user._id }, email: { $regex: new RegExp(`^${email.trim()}$`, "i") } });
+      if (emailTaken) return res.status(400).json({ error: "Email already exists." });
+      user.email = email;
+    }
     if (phone !== undefined) user.phone = phone;
     if (title !== undefined) user.title = title;
     if (department !== undefined) user.department = department;
