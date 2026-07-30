@@ -16,6 +16,21 @@ async function withLeadCount(categories, orgId) {
   });
 }
 
+router.get("/:id", async (req, res) => {
+  try {
+    const orgId = req.user.organization;
+    const cat = await Category.findOne({ _id: req.params.id, organization: orgId });
+    if (!cat) return res.status(404).json({ error: "Category not found" });
+    const [leads] = await Promise.all([
+      Lead.find({ organization: orgId, category: cat.name }).sort({ createdAt: -1 }),
+    ]);
+    res.json({ ...cat.toJSON(), leads });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get("/", async (req, res) => {
   try {
     const orgId = req.user.organization;

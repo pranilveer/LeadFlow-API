@@ -10,6 +10,7 @@ import userRoutes from "./routes/users.js";
 import activityRoutes from "./routes/activities.js";
 import settingsRoutes from "./routes/settings.js";
 import backupRoutes from "./routes/backup.js";
+import projectRoutes from "./routes/projects.js";
 
 dotenv.config();
 
@@ -38,6 +39,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/activities", activityRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/backup", backupRoutes);
+app.use("/api/projects", projectRoutes);
 
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 
