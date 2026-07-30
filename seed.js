@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import User from "./models/User.js";
+import Organization from "./models/Organization.js";
 import Lead from "./models/Lead.js";
 import Category from "./models/Category.js";
 import Activity from "./models/Activity.js";
@@ -9,6 +10,8 @@ import Settings from "./models/Settings.js";
 import Counter from "./models/Counter.js";
 
 dotenv.config();
+
+const ORG_NAME = "LeadFlow Demo";
 
 const USERS = [
   { username: "Admin", password: "Admin@123", role: "admin", name: "Admin User", email: "admin@leadflow.io", phone: "+1 (555) 100-0001", title: "System Administrator", department: "Operations", bio: "Full access administrator for LeadFlow CRM.", avatarColor: "#60A5FA", createdAt: new Date("2024-01-01T08:00:00.000Z"), lastLogin: null },
@@ -45,33 +48,41 @@ async function seed() {
     console.log("Connected to MongoDB");
 
     await Promise.all([
-      User.deleteMany({}), Lead.deleteMany({}), Category.deleteMany({}),
-      Activity.deleteMany({}), Settings.deleteMany({}), Counter.deleteMany({}),
+      User.deleteMany({}), Organization.deleteMany({}), Lead.deleteMany({}),
+      Category.deleteMany({}), Activity.deleteMany({}), Settings.deleteMany({}), Counter.deleteMany({}),
     ]);
     console.log("Cleared existing data");
 
+    const org = await Organization.create({ name: ORG_NAME });
+    console.log(`Created organization: ${org.name}`);
+
     for (const u of USERS) {
       const hashed = await bcrypt.hash(u.password, 10);
-      await User.create({ ...u, password: hashed });
+      await User.create({ ...u, password: hashed, organization: org._id });
     }
     console.log(`Created ${USERS.length} users`);
 
-    await Category.insertMany(CATEGORIES);
+    for (const c of CATEGORIES) {
+      await Category.create({ ...c, organization: org._id });
+    }
     console.log(`Created ${CATEGORIES.length} categories`);
 
-    await Lead.insertMany(LEADS);
+    for (const l of LEADS) {
+      await Lead.create({ ...l, organization: org._id });
+    }
     console.log(`Created ${LEADS.length} leads`);
 
-    await Settings.create(SETTINGS);
+    await Settings.create({ organization: org._id, ...SETTINGS });
     console.log("Created settings");
 
-    await Counter.create({ name: "lead_seq", seq: 6 });
+    await Counter.create({ name: `lead_seq_${org._id}`, seq: 6 });
     console.log("Created lead counter");
 
-    await Activity.create({ type: "system", message: "LeadFlow CRM initialized with sample data.", user: "System" });
+    await Activity.create({ organization: org._id, type: "system", message: "LeadFlow CRM initialized with sample data.", user: "System" });
     console.log("Created initial activity");
 
-    console.log("\nSeed complete! Demo accounts:");
+    console.log("\nSeed complete! Organization: LeadFlow Demo");
+    console.log("Demo accounts:");
     console.log("  Admin / Admin@123 (admin)");
     console.log("  John / John@123 (user)");
     console.log("  Sarah / Sarah@123 (user)");

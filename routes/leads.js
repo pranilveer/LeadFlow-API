@@ -6,11 +6,11 @@ import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
-async function nextLeadId() {
+async function nextLeadId(orgId) {
   const now = new Date();
   const year = now.getFullYear();
   const counter = await Counter.findOneAndUpdate(
-    { name: "lead_seq" },
+    { name: `lead_seq_${orgId}` },
     { $inc: { seq: 1 } },
     { new: true, upsert: true }
   );
@@ -21,18 +21,17 @@ router.use(requireAuth);
 
 router.get("/stats", async (req, res) => {
   try {
-    const isAdmin = req.user.role === "admin";
-    const match = isAdmin ? {} : { addedBy: req.user.username };
+    const orgId = req.user.organization;
     const today = new Date().toISOString().slice(0, 10);
 
     const [total, todayCount, myCount] = await Promise.all([
-      Lead.countDocuments(match),
-      Lead.countDocuments({ ...match, addedDate: today }),
-      Lead.countDocuments({ addedBy: req.user.username }),
+      Lead.countDocuments({ organization: orgId }),
+      Lead.countDocuments({ organization: orgId, addedDate: today }),
+      Lead.countDocuments({ organization: orgId, addedBy: req.user.username }),
     ]);
 
     const Category = (await import("../models/Category.js")).default;
-    const categories = await Category.countDocuments();
+    const categories = await Category.countDocuments({ organization: orgId });
 
     res.json({ total, today: todayCount, categories, myLeads: myCount });
   } catch (err) {
@@ -43,9 +42,7 @@ router.get("/stats", async (req, res) => {
 
 router.get("/", async (req, res) => {
   try {
-    const isAdmin = req.user.role === "admin";
-    const query = isAdmin ? {} : { addedBy: req.user.username };
-    const leads = await Lead.find(query).sort({ createdAt: -1 });
+    const leads = await Lead.find({ organization: req.user.organization }).sort({ createdAt: -1 });
     res.json(leads);
   } catch (err) {
     console.error(err);
@@ -55,16 +52,18 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
+    const orgId = req.user.organization;
     const now = new Date();
-    const id = await nextLeadId();
+    const id = await nextLeadId(orgId);
     const lead = await Lead.create({
       ...req.body,
+      organization: orgId,
       id,
       addedDate: now.toISOString().slice(0, 10),
       addedTime: [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, "0")).join(":"),
       addedBy: req.user.username,
     });
-    await Activity.create({ type: "lead", message: `Lead "${lead.leadName}" created (${lead.id}).`, user: req.user.username });
+    await Activity.create({ organization: orgId, type: "lead", message: `Lead "${lead.leadName}" created (${lead.id}).`, user: req.user.username });
     res.status(201).json(lead);
   } catch (err) {
     console.error(err);
@@ -74,14 +73,15 @@ router.post("/", async (req, res) => {
 
 router.put("/:id", async (req, res) => {
   try {
-    const lead = await Lead.findOne({ id: req.params.id });
+    const orgId = req.user.organization;
+    const lead = await Lead.findOne({ organization: orgId, id: req.params.id });
     if (!lead) return res.status(404).json({ error: "Lead not found" });
     if (req.user.role !== "admin" && lead.addedBy !== req.user.username) {
       return res.status(403).json({ error: "Not authorized" });
     }
-    Object.assign(lead, req.body, { id: lead.id, addedBy: lead.addedBy });
+    Object.assign(lead, req.body, { id: lead.id, addedBy: lead.addedBy, organization: lead.organization });
     await lead.save();
-    await Activity.create({ type: "lead", message: `Lead "${lead.leadName}" updated.`, user: req.user.username });
+    await Activity.create({ organization: orgId, type: "lead", message: `Lead "${lead.leadName}" updated.`, user: req.user.username });
     res.json(lead);
   } catch (err) {
     console.error(err);
@@ -91,13 +91,14 @@ router.put("/:id", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    const lead = await Lead.findOne({ id: req.params.id });
+    const orgId = req.user.organization;
+    const lead = await Lead.findOne({ organization: orgId, id: req.params.id });
     if (!lead) return res.status(404).json({ error: "Lead not found" });
     if (req.user.role !== "admin" && lead.addedBy !== req.user.username) {
       return res.status(403).json({ error: "Not authorized" });
     }
-    await Lead.deleteOne({ id: req.params.id });
-    await Activity.create({ type: "lead", message: `Lead "${lead.leadName}" deleted.`, user: req.user.username });
+    await Lead.deleteOne({ organization: orgId, id: req.params.id });
+    await Activity.create({ organization: orgId, type: "lead", message: `Lead "${lead.leadName}" deleted.`, user: req.user.username });
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -107,15 +108,17 @@ router.delete("/:id", async (req, res) => {
 
 router.post("/import", async (req, res) => {
   try {
+    const orgId = req.user.organization;
     const { leads } = req.body;
     if (!Array.isArray(leads)) return res.status(400).json({ error: "leads array required" });
     const now = new Date();
     const results = [];
     for (const data of leads) {
       if (!data.leadName || !data.email) continue;
-      const id = await nextLeadId();
+      const id = await nextLeadId(orgId);
       const lead = await Lead.create({
         ...data,
+        organization: orgId,
         id,
         addedDate: data.addedDate || now.toISOString().slice(0, 10),
         addedTime: data.addedTime || [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, "0")).join(":"),
@@ -124,7 +127,7 @@ router.post("/import", async (req, res) => {
       results.push(lead);
     }
     if (results.length > 0) {
-      await Activity.create({ type: "lead", message: `Imported ${results.length} lead(s) from CSV.`, user: req.user.username });
+      await Activity.create({ organization: orgId, type: "lead", message: `Imported ${results.length} lead(s) from CSV.`, user: req.user.username });
     }
     res.status(201).json({ imported: results.length });
   } catch (err) {

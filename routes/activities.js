@@ -7,7 +7,8 @@ router.use(requireAuth);
 
 router.get("/", async (req, res) => {
   try {
-    const query = {};
+    const orgId = req.user.organization;
+    const query = { organization: orgId };
     if (req.query.type) query.type = req.query.type;
     if (req.query.user) query.user = req.query.user;
     const activities = await Activity.find(query).sort({ timestamp: -1 }).limit(500);

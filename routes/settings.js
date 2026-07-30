@@ -12,10 +12,11 @@ const DEFAULTS = {
   emailNotifications: true, desktopNotifications: false, autoBackup: false,
 };
 
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
-    let settings = await Settings.findOne();
-    if (!settings) settings = await Settings.create(DEFAULTS);
+    const orgId = req.user.organization;
+    let settings = await Settings.findOne({ organization: orgId });
+    if (!settings) settings = await Settings.create({ organization: orgId, ...DEFAULTS });
     res.json(settings);
   } catch (err) {
     console.error(err);
@@ -25,11 +26,12 @@ router.get("/", async (_req, res) => {
 
 router.put("/", requireAdmin, async (req, res) => {
   try {
-    let settings = await Settings.findOne();
-    if (!settings) settings = new Settings(DEFAULTS);
+    const orgId = req.user.organization;
+    let settings = await Settings.findOne({ organization: orgId });
+    if (!settings) settings = new Settings({ organization: orgId, ...DEFAULTS });
     Object.assign(settings, req.body);
     await settings.save();
-    await Activity.create({ type: "system", message: "Settings updated.", user: req.user.username });
+    await Activity.create({ organization: orgId, type: "system", message: "Settings updated.", user: req.user.username });
     res.json(settings);
   } catch (err) {
     console.error(err);
@@ -52,7 +54,7 @@ router.put("/profile", async (req, res) => {
     if (bio !== undefined) user.bio = bio;
     if (password && password.length >= 6) user.password = await bcrypt.hash(password, 10);
     await user.save();
-    await Activity.create({ type: "user", message: "Profile updated.", user: req.user.username });
+    await Activity.create({ organization: user.organization, type: "user", message: "Profile updated.", user: req.user.username });
     res.json(user);
   } catch (err) {
     console.error(err);

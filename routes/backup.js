@@ -32,11 +32,13 @@ const DEFAULT_SETTINGS = {
   emailNotifications: true, desktopNotifications: false, autoBackup: false,
 };
 
-router.get("/export", requireAdmin, async (_req, res) => {
+router.get("/export", requireAdmin, async (req, res) => {
   try {
+    const orgId = req.user.organization;
     const [users, leads, categories, activities, settings, counter] = await Promise.all([
-      User.find(), Lead.find(), Category.find(), Activity.find().sort({ timestamp: -1 }).limit(500),
-      Settings.findOne(), Counter.findOne({ name: "lead_seq" }),
+      User.find({ organization: orgId }), Lead.find({ organization: orgId }),
+      Category.find({ organization: orgId }), Activity.find({ organization: orgId }).sort({ timestamp: -1 }).limit(500),
+      Settings.findOne({ organization: orgId }), Counter.findOne({ name: `lead_seq_${orgId}` }),
     ]);
     res.json({
       version: "1.0", exportedAt: new Date().toISOString(),
@@ -52,14 +54,15 @@ router.get("/export", requireAdmin, async (_req, res) => {
 
 router.post("/import", requireAdmin, async (req, res) => {
   try {
+    const orgId = req.user.organization;
     const payload = req.body;
     if (!payload || !payload.leads || !payload.categories) {
       return res.status(400).json({ error: "Invalid backup file format." });
     }
     if (payload.users) {
-      await User.deleteMany({});
+      await User.deleteMany({ organization: orgId });
       for (const u of payload.users) {
-        const userData = { ...u };
+        const userData = { ...u, organization: orgId };
         delete userData._id;
         delete userData.__v;
         if (userData.password) {
@@ -69,38 +72,38 @@ router.post("/import", requireAdmin, async (req, res) => {
         await User.create(userData);
       }
     }
-    await Lead.deleteMany({});
+    await Lead.deleteMany({ organization: orgId });
     for (const l of payload.leads) {
-      const leadData = { ...l };
+      const leadData = { ...l, organization: orgId };
       delete leadData._id;
       delete leadData.__v;
       await Lead.create(leadData);
     }
-    await Category.deleteMany({});
+    await Category.deleteMany({ organization: orgId });
     for (const c of payload.categories) {
-      const catData = { ...c };
+      const catData = { ...c, organization: orgId };
       delete catData._id;
       delete catData.__v;
       delete catData.leadCount;
       await Category.create(catData);
     }
     if (payload.activities) {
-      await Activity.deleteMany({});
+      await Activity.deleteMany({ organization: orgId });
       for (const a of payload.activities) {
-        const actData = { ...a };
+        const actData = { ...a, organization: orgId };
         delete actData._id;
         delete actData.__v;
         await Activity.create(actData);
       }
     }
     if (payload.settings) {
-      await Settings.deleteMany({});
-      await Settings.create(payload.settings);
+      await Settings.deleteMany({ organization: orgId });
+      await Settings.create({ ...payload.settings, organization: orgId });
     }
     if (payload.leadSeq) {
-      await Counter.findOneAndUpdate({ name: "lead_seq" }, { seq: payload.leadSeq }, { upsert: true });
+      await Counter.findOneAndUpdate({ name: `lead_seq_${orgId}` }, { seq: payload.leadSeq }, { upsert: true });
     }
-    await Activity.create({ type: "system", message: "Data restored from backup.", user: req.user.username });
+    await Activity.create({ organization: orgId, type: "system", message: "Data restored from backup.", user: req.user.username });
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -110,22 +113,24 @@ router.post("/import", requireAdmin, async (req, res) => {
 
 router.post("/reset", requireAdmin, async (req, res) => {
   try {
+    const orgId = req.user.organization;
     await Promise.all([
-      Lead.deleteMany({}), Category.deleteMany({}), Activity.deleteMany({}),
-      Settings.deleteMany({}), Counter.deleteMany({}),
+      Lead.deleteMany({ organization: orgId }), Category.deleteMany({ organization: orgId }),
+      Activity.deleteMany({ organization: orgId }), Settings.deleteMany({ organization: orgId }),
+      Counter.deleteMany({ name: `lead_seq_${orgId}` }),
     ]);
-    await User.deleteMany({});
+    await User.deleteMany({ organization: orgId });
     for (const u of DEFAULT_USERS) {
       const bcryptMod = await import("bcryptjs");
       const hashed = await bcryptMod.default.hash(u.password, 10);
-      await User.create({ ...u, password: hashed, createdAt: new Date("2024-01-01T08:00:00.000Z"), lastLogin: null });
+      await User.create({ ...u, password: hashed, organization: orgId, createdAt: new Date("2024-01-01T08:00:00.000Z"), lastLogin: null });
     }
     for (const c of DEFAULT_CATEGORIES) {
-      await Category.create({ ...c, createdAt: new Date("2024-01-01T08:00:00.000Z") });
+      await Category.create({ ...c, organization: orgId, createdAt: new Date("2024-01-01T08:00:00.000Z") });
     }
-    await Settings.create(DEFAULT_SETTINGS);
-    await Counter.create({ name: "lead_seq", seq: 1 });
-    await Activity.create({ type: "system", message: "All CRM data reset to defaults.", user: req.user.username });
+    await Settings.create({ organization: orgId, ...DEFAULT_SETTINGS });
+    await Counter.create({ name: `lead_seq_${orgId}`, seq: 1 });
+    await Activity.create({ organization: orgId, type: "system", message: "All CRM data reset to defaults.", user: req.user.username });
     res.json({ success: true });
   } catch (err) {
     console.error(err);

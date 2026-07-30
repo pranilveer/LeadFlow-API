@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 const settingsSchema = new mongoose.Schema({
+  organization: { type: mongoose.Schema.Types.ObjectId, ref: "Organization", required: true, unique: true },
   companyName: { type: String, default: "LeadFlow CRM" },
   timezone: { type: String, default: "Asia/Kolkata" },
   dateFormat: { type: String, default: "MMM D, YYYY" },
