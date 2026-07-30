@@ -3,8 +3,9 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Organization from "../models/Organization.js";
+import Invite from "../models/Invite.js";
 import Activity from "../models/Activity.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -113,6 +114,91 @@ router.get("/me", requireAuth, async (req, res) => {
       email: user.email, phone: user.phone, title: user.title, department: user.department,
       bio: user.bio, avatarColor: user.avatarColor, createdAt: user.createdAt, lastLogin: user.lastLogin,
       organization: user.organization, organizationName: org ? org.name : "",
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/invite", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const orgId = req.user.organization;
+    const invite = await Invite.create({
+      organization: orgId,
+      createdBy: req.user.username,
+      expiresAt: null,
+      maxUses: null,
+    });
+    await Activity.create({ organization: orgId, type: "user", message: `Invite link created by ${req.user.username}.`, user: req.user.username });
+    res.status(201).json({ code: invite.code });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/invite/:code", async (req, res) => {
+  try {
+    const invite = await Invite.findOne({ code: req.params.code, active: true });
+    if (!invite) return res.status(404).json({ error: "Invalid or expired invite link." });
+    if (invite.expiresAt && invite.expiresAt < new Date()) return res.status(410).json({ error: "Invite link has expired." });
+    if (invite.maxUses && invite.useCount >= invite.maxUses) return res.status(410).json({ error: "Invite link has been used too many times." });
+
+    const org = await Organization.findById(invite.organization);
+    if (!org) return res.status(404).json({ error: "Organization not found." });
+
+    res.json({ organizationName: org.name, code: invite.code });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/join/:code", async (req, res) => {
+  try {
+    const { username, password, name, email } = req.body;
+    if (!username || !username.trim()) return res.status(400).json({ error: "Username is required." });
+    if (!password || password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters." });
+    if (!name || !name.trim()) return res.status(400).json({ error: "Full name is required." });
+
+    const invite = await Invite.findOne({ code: req.params.code, active: true });
+    if (!invite) return res.status(404).json({ error: "Invalid or expired invite link." });
+    if (invite.expiresAt && invite.expiresAt < new Date()) return res.status(410).json({ error: "Invite link has expired." });
+    if (invite.maxUses && invite.useCount >= invite.maxUses) return res.status(410).json({ error: "Invite link has been used too many times." });
+
+    const orgId = invite.organization;
+
+    const exists = await User.findOne({ organization: orgId, username: { $regex: new RegExp(`^${username.trim()}$`, "i") } });
+    if (exists) return res.status(400).json({ error: "Username already exists." });
+
+    if (email) {
+      const emailTaken = await User.findOne({ organization: orgId, email: { $regex: new RegExp(`^${email.trim()}$`, "i") } });
+      if (emailTaken) return res.status(400).json({ error: "Email already exists." });
+    }
+
+    const count = await User.countDocuments({ organization: orgId });
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      organization: orgId,
+      username: username.trim(),
+      password: hashed,
+      role: "user",
+      name: name.trim(),
+      email: email || "",
+      avatarColor: AVATAR_COLORS[count % AVATAR_COLORS.length],
+    });
+
+    invite.useCount += 1;
+    await invite.save();
+
+    const org = await Organization.findById(orgId);
+    const token = signToken(user);
+    await Activity.create({ organization: orgId, type: "auth", message: `${user.username} joined via invite link.`, user: user.username });
+
+    res.status(201).json({
+      token,
+      user: { userId: user._id, username: user.username, role: user.role, name: user.name, email: user.email, avatarColor: user.avatarColor, loggedInAt: new Date().toISOString(), organization: orgId, organizationName: org.name },
     });
   } catch (err) {
     console.error(err);
