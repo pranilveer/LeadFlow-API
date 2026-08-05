@@ -32,6 +32,43 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "10mb" }));
 
+const CONN_OPTS = {
+  serverSelectionTimeoutMS: Number(process.env.MONGO_TIMEOUT_MS) || 15000,
+  bufferCommands: false,
+  maxPoolSize: 10,
+};
+
+let cached = global.mongoose || (global.mongoose = { conn: null, promise: null });
+
+async function connectDB() {
+  if (cached.conn) return cached.conn;
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(process.env.MONGO_URI, CONN_OPTS).then((m) => {
+      console.log("MongoDB connected");
+      return m;
+    });
+  }
+  try {
+    cached.conn = await cached.promise;
+  } catch (err) {
+    cached.promise = null;
+    throw err;
+  }
+  return cached.conn;
+}
+
+app.use(async (_req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error("MongoDB connection error:", err.message);
+    res.status(503).json({
+      error: "Database is unreachable. Check your MONGO_URI and ensure your MongoDB Atlas network access allows all IPs (0.0.0.0/0).",
+    });
+  }
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/leads", leadRoutes);
 app.use("/api/categories", categoryRoutes);
@@ -41,7 +78,14 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/backup", backupRoutes);
 app.use("/api/projects", projectRoutes);
 
-app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
+app.get("/api/health", async (_req, res) => {
+  try {
+    await connectDB();
+    res.json({ status: mongoose.connection.readyState === 1 ? "ok" : "connecting" });
+  } catch (err) {
+    res.status(503).json({ status: "error", error: err.message });
+  }
+});
 
 app.use((err, _req, res, _next) => {
   console.error(err.stack);
@@ -50,19 +94,16 @@ app.use((err, _req, res, _next) => {
 
 const PORT = process.env.PORT || 5000;
 
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB connected");
-    if (process.env.VERCEL) {
-      console.log("Running on Vercel");
-    } else {
-      app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-    }
-  })
-  .catch((err) => {
-    console.error("MongoDB connection error:", err.message);
-    if (!process.env.VERCEL) process.exit(1);
+if (process.env.VERCEL) {
+  console.log("Running on Vercel");
+} else {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    connectDB().catch((err) => {
+      console.error("MongoDB connection error:", err.message);
+      process.exit(1);
+    });
   });
+}
 
 export default app;
